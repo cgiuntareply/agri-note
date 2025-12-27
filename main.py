@@ -231,7 +231,6 @@ async def get_meteo(lat: float = None, lng: float = None) -> dict:
         lat = METEO_LAT
     if lng is None:
         lng = METEO_LNG
-    """Ottiene dati meteo da Open-Meteo API"""
     try:
         async with httpx.AsyncClient() as client:
             url = f"https://api.open-meteo.com/v1/forecast"
@@ -313,7 +312,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
             "user": user,
             "azienda": None,
             "scadenze": [],
-            "meteo": {"temperatura": "N/A"},
+            "meteo": {"temperatura": "N/A", "lat": METEO_LAT, "lng": METEO_LNG},
             "oggi": oggi
         })
     
@@ -326,8 +325,10 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         Mezzo.data_revisione >= oggi
     ).order_by(Mezzo.data_revisione).all()
     
-    # Meteo con alert
+    # Meteo con alert (usa coordinate default, verranno aggiornate via JS)
     meteo_data = await get_meteo_esteso()
+    meteo_data["lat"] = METEO_LAT
+    meteo_data["lng"] = METEO_LNG
     
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -337,6 +338,56 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "meteo": meteo_data,
         "oggi": oggi
     })
+
+
+@app.get("/api/meteo")
+async def api_meteo(lat: float, lng: float, db: Session = Depends(get_db)):
+    """API per ottenere meteo con coordinate personalizzate"""
+    try:
+        meteo_data = await get_meteo_esteso(lat, lng)
+        
+        # Debug: stampa cosa restituisce
+        print(f"DEBUG api_meteo: Keys in meteo_data: {list(meteo_data.keys())}")
+        if "previsioni_giornaliere" in meteo_data:
+            print(f"DEBUG api_meteo: previsioni_giornaliere length: {len(meteo_data['previsioni_giornaliere'])}")
+        else:
+            print("DEBUG api_meteo: previsioni_giornaliere NOT FOUND!")
+            # Se non c'è, crealo dai dati raw
+            if "previsioni" in meteo_data:
+                daily = meteo_data["previsioni"]
+                previsioni_giornaliere = []
+                dates = daily.get("time", [])
+                temps_max = daily.get("temperature_2m_max", [])
+                temps_min = daily.get("temperature_2m_min", [])
+                precip = daily.get("precipitation_sum", [])
+                weather_codes = daily.get("weather_code", [])
+                
+                for i in range(min(7, len(dates))):
+                    previsioni_giornaliere.append({
+                        "data": dates[i] if i < len(dates) else "",
+                        "temp_max": temps_max[i] if i < len(temps_max) else None,
+                        "temp_min": temps_min[i] if i < len(temps_min) else None,
+                        "precipitazioni": precip[i] if i < len(precip) else 0,
+                        "codice_meteo": weather_codes[i] if i < len(weather_codes) else 0
+                    })
+                meteo_data["previsioni_giornaliere"] = previsioni_giornaliere
+        
+        # Assicurati che previsioni_giornaliere sia sempre presente
+        if "previsioni_giornaliere" not in meteo_data:
+            meteo_data["previsioni_giornaliere"] = []
+            
+        return meteo_data
+    except Exception as e:
+        print(f"Errore API meteo: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "temperatura": "N/A", 
+            "alert": None, 
+            "consiglio": None, 
+            "previsioni_giornaliere": [],
+            "error": str(e)
+        }
 
 
 @app.get("/mappa", response_class=HTMLResponse)
@@ -1002,7 +1053,6 @@ async def get_meteo_esteso(lat: float = None, lng: float = None) -> dict:
         lat = METEO_LAT
     if lng is None:
         lng = METEO_LNG
-    """Ottiene previsioni meteo estese e genera alert"""
     try:
         async with httpx.AsyncClient() as client:
             url = "https://api.open-meteo.com/v1/forecast"
@@ -1018,36 +1068,64 @@ async def get_meteo_esteso(lat: float = None, lng: float = None) -> dict:
                 data = response.json()
                 daily = data.get("daily", {})
                 
+                # Prepara previsioni giornaliere
+                previsioni_giornaliere = []
+                dates = daily.get("time", [])
+                temps_max = daily.get("temperature_2m_max", [])
+                temps_min = daily.get("temperature_2m_min", [])
+                precip = daily.get("precipitation_sum", [])
+                weather_codes = daily.get("weather_code", [])
+                
+                for i in range(min(7, len(dates))):
+                    previsioni_giornaliere.append({
+                        "data": dates[i] if i < len(dates) else "",
+                        "temp_max": temps_max[i] if i < len(temps_max) else None,
+                        "temp_min": temps_min[i] if i < len(temps_min) else None,
+                        "precipitazioni": precip[i] if i < len(precip) else 0,
+                        "codice_meteo": weather_codes[i] if i < len(weather_codes) else 0
+                    })
+                
                 # Analizza condizioni per alert
                 alert = None
                 consiglio = None
                 
-                # Controlla pioggia prevista
-                if daily.get("precipitation_sum", [0])[0] > 5:
+                # Controlla pioggia prevista (oggi e domani)
+                if len(precip) > 0 and precip[0] > 5:
                     alert = "Pioggia prevista"
                     consiglio = "Evitare trattamenti fitosanitari nei prossimi giorni"
-                elif daily.get("precipitation_sum", [0])[0] > 0:
+                elif len(precip) > 0 and precip[0] > 0:
                     alert = "Possibile pioggia"
                     consiglio = "Verificare condizioni meteo prima di trattamenti"
                 
                 # Controlla temperatura
-                temp_max = daily.get("temperature_2m_max", [0])[0]
-                if temp_max > 30:
-                    if not alert:
-                        alert = "Temperature elevate"
-                    consiglio = "Evitare trattamenti nelle ore più calde"
+                if len(temps_max) > 0:
+                    temp_max = temps_max[0]
+                    if temp_max > 30:
+                        if not alert:
+                            alert = "Temperature elevate"
+                        consiglio = "Evitare trattamenti nelle ore più calde"
                 
                 return {
-                    "temperatura": daily.get("temperature_2m_max", [0])[0],
-                    "precipitazioni": daily.get("precipitation_sum", [0]),
+                    "temperatura": temps_max[0] if len(temps_max) > 0 else "N/A",
+                    "precipitazioni": precip,
                     "alert": alert,
                     "consiglio": consiglio,
-                    "previsioni": daily
+                    "previsioni": daily,
+                    "previsioni_giornaliere": previsioni_giornaliere
                 }
     except Exception as e:
         print(f"Errore meteo: {e}")
+        import traceback
+        traceback.print_exc()
     
-    return {"temperatura": "N/A", "alert": None, "consiglio": None}
+    # Fallback: restituisci sempre una struttura valida
+    return {
+        "temperatura": "N/A", 
+        "alert": None, 
+        "consiglio": None, 
+        "previsioni_giornaliere": [],
+        "precipitazioni": []
+    }
 
 
 if __name__ == "__main__":

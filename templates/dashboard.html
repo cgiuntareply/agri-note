@@ -30,22 +30,78 @@
     <div class="bg-white rounded-lg shadow-md p-6">
         <h3 class="text-xl font-semibold text-green-600 mb-4">🌤️ Meteo</h3>
         <div class="space-y-2">
-            <p class="text-3xl font-bold text-blue-600">
-                {% if meteo.temperatura != "N/A" %}{{ meteo.temperatura }}°C{% else %}N/A{% endif %}
+            <p class="text-3xl font-bold text-blue-600" id="meteo-temperatura">
+                {% if meteo.temperatura != "N/A" %}{{ meteo.temperatura }}°C{% else %}Caricamento...{% endif %}
             </p>
-            <p class="text-gray-600">Milano, Italia</p>
-            {% if meteo.alert %}
-            <div class="mt-4 p-3 rounded-lg {% if 'pioggia' in meteo.alert.lower() %}bg-yellow-50 border border-yellow-200{% else %}bg-orange-50 border border-orange-200{% endif %}">
-                <p class="font-semibold text-sm {% if 'pioggia' in meteo.alert.lower() %}text-yellow-800{% else %}text-orange-800{% endif %}">
-                    ⚠️ {{ meteo.alert }}
-                </p>
-                {% if meteo.consiglio %}
-                <p class="text-xs mt-1 {% if 'pioggia' in meteo.alert.lower() %}text-yellow-700{% else %}text-orange-700{% endif %}">
-                    💡 {{ meteo.consiglio }}
-                </p>
+            <p class="text-gray-600" id="meteo-location">Caricamento posizione...</p>
+            <button 
+                onclick="richiediGeolocalizzazione()" 
+                class="text-xs text-green-600 hover:text-green-800 underline"
+                id="btn-geoloc"
+            >
+                📍 Usa la mia posizione
+            </button>
+            <div id="meteo-alert-container">
+                {% if meteo.alert %}
+                <div class="mt-4 p-3 rounded-lg {% if 'pioggia' in meteo.alert.lower() %}bg-yellow-50 border border-yellow-200{% else %}bg-orange-50 border border-orange-200{% endif %}">
+                    <p class="font-semibold text-sm {% if 'pioggia' in meteo.alert.lower() %}text-yellow-800{% else %}text-orange-800{% endif %}">
+                        ⚠️ {{ meteo.alert }}
+                    </p>
+                    {% if meteo.consiglio %}
+                    <p class="text-xs mt-1 {% if 'pioggia' in meteo.alert.lower() %}text-yellow-700{% else %}text-orange-700{% endif %}">
+                        💡 {{ meteo.consiglio }}
+                    </p>
+                    {% endif %}
+                </div>
                 {% endif %}
             </div>
-            {% endif %}
+            
+            <!-- Previsioni 7 giorni -->
+            <div class="mt-6">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">📅 Previsioni</h4>
+                <div id="previsioni-container" class="space-y-2">
+                    {% if meteo.previsioni_giornaliere and meteo.previsioni_giornaliere|length > 0 %}
+                    {% for prev in meteo.previsioni_giornaliere %}
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg previsione-item {% if loop.index0 >= 2 %}hidden{% endif %}" data-index="{{ loop.index0 }}">
+                        <div class="flex-1">
+                            <p class="text-xs font-medium text-gray-700">
+                                {% if loop.index0 == 0 %}Oggi{% elif loop.index0 == 1 %}Domani{% else %}{{ prev.data }}{% endif %}
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs text-gray-600">
+                                {% if prev.temp_max is not none %}{{ prev.temp_max|int }}°{% else %}-{% endif %} / 
+                                {% if prev.temp_min is not none %}{{ prev.temp_min|int }}°{% else %}-{% endif %}
+                            </span>
+                            {% if prev.precipitazioni and prev.precipitazioni > 0 %}
+                            <span class="text-xs text-blue-600">💧 {{ prev.precipitazioni|round(1) }}mm</span>
+                            {% else %}
+                            <span class="text-xs text-gray-400">☀️</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if meteo.previsioni_giornaliere|length > 2 %}
+                    <button 
+                        id="btn-mostra-tutti" 
+                        onclick="mostraTuttiGiorni()"
+                        class="w-full mt-2 text-xs text-green-600 hover:text-green-800 hover:underline text-center"
+                    >
+                        ▼ Mostra tutti i 7 giorni
+                    </button>
+                    <button 
+                        id="btn-nascondi" 
+                        onclick="nascondiGiorni()"
+                        class="w-full mt-2 text-xs text-green-600 hover:text-green-800 hover:underline text-center hidden"
+                    >
+                        ▲ Mostra solo Oggi e Domani
+                    </button>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-xs text-gray-500" id="previsioni-placeholder">Caricamento previsioni...</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -106,5 +162,249 @@
     <p class="text-yellow-800">⚠️ Nessuna azienda associata. Contatta l'amministratore.</p>
 </div>
 {% endif %}
+
+<script>
+// Geolocalizzazione per meteo
+let userLat = {% if meteo.lat %}{{ meteo.lat }}{% else %}45.4642{% endif %};
+let userLng = {% if meteo.lng %}{{ meteo.lng }}{% else %}9.1900{% endif %};
+
+// Richiedi geolocalizzazione all'avvio
+window.addEventListener('DOMContentLoaded', function() {
+    if (navigator.geolocation) {
+        // Prova a ottenere posizione salvata
+        const savedPos = localStorage.getItem('userLocation');
+        if (savedPos) {
+            try {
+                const pos = JSON.parse(savedPos);
+                userLat = pos.lat;
+                userLng = pos.lng;
+                aggiornaMeteo(userLat, userLng);
+            } catch (e) {
+                console.error('Errore parsing posizione salvata:', e);
+            }
+        }
+        
+        // Richiedi geolocalizzazione (con timeout)
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                userLat = position.coords.latitude;
+                userLng = position.coords.longitude;
+                
+                // Salva posizione
+                localStorage.setItem('userLocation', JSON.stringify({lat: userLat, lng: userLng}));
+                
+                // Aggiorna meteo
+                aggiornaMeteo(userLat, userLng);
+            },
+            function(error) {
+                console.log('Geolocalizzazione non disponibile o negata:', error.message);
+                document.getElementById('meteo-location').textContent = 'Posizione: Default (Milano)';
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 300000 // 5 minuti
+            }
+        );
+    } else {
+        document.getElementById('meteo-location').textContent = 'Geolocalizzazione non supportata';
+    }
+});
+
+// Funzione per richiedere manualmente geolocalizzazione
+function richiediGeolocalizzazione() {
+    if (!navigator.geolocation) {
+        alert('Geolocalizzazione non supportata dal browser');
+        return;
+    }
+    
+    const btn = document.getElementById('btn-geoloc');
+    btn.disabled = true;
+    btn.textContent = '⏳ Caricamento...';
+    
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            userLat = position.coords.latitude;
+            userLng = position.coords.longitude;
+            
+            // Salva posizione
+            localStorage.setItem('userLocation', JSON.stringify({lat: userLat, lng: userLng}));
+            
+            // Aggiorna meteo
+            aggiornaMeteo(userLat, userLng);
+            
+            btn.disabled = false;
+            btn.textContent = '✅ Posizione aggiornata';
+            setTimeout(() => {
+                btn.textContent = '📍 Usa la mia posizione';
+            }, 2000);
+        },
+        function(error) {
+            alert('Impossibile ottenere la posizione: ' + error.message);
+            btn.disabled = false;
+            btn.textContent = '📍 Usa la mia posizione';
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000
+        }
+    );
+}
+
+// Funzione per formattare data
+function formattaData(dataStr) {
+    if (!dataStr) return '';
+    const data = new Date(dataStr);
+    const oggi = new Date();
+    const domani = new Date(oggi);
+    domani.setDate(domani.getDate() + 1);
+    
+    if (data.toDateString() === oggi.toDateString()) {
+        return 'Oggi';
+    } else if (data.toDateString() === domani.toDateString()) {
+        return 'Domani';
+    } else {
+        return data.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+}
+
+// Funzione per icona meteo basata su codice
+function getIconaMeteo(codice) {
+    // Codici WMO Weather Interpretation Codes
+    if (codice === null || codice === undefined) return '☀️';
+    if (codice <= 1) return '☀️'; // Clear sky
+    if (codice <= 3) return '🌤️'; // Partly cloudy
+    if (codice <= 48) return '☁️'; // Foggy
+    if (codice <= 67 || codice <= 77) return '🌧️'; // Rain
+    if (codice <= 82) return '⛈️'; // Rain showers
+    if (codice <= 86) return '🌨️'; // Snow
+    if (codice <= 99) return '⛈️'; // Thunderstorm
+    return '☀️';
+}
+
+// Funzione per mostrare tutti i giorni
+function mostraTuttiGiorni() {
+    const items = document.querySelectorAll('.previsione-item');
+    items.forEach(item => {
+        item.classList.remove('hidden');
+    });
+    const btnMostra = document.getElementById('btn-mostra-tutti');
+    const btnNascondi = document.getElementById('btn-nascondi');
+    if (btnMostra) btnMostra.classList.add('hidden');
+    if (btnNascondi) btnNascondi.classList.remove('hidden');
+}
+
+// Funzione per nascondere giorni extra
+function nascondiGiorni() {
+    const items = document.querySelectorAll('.previsione-item');
+    items.forEach((item, index) => {
+        if (index >= 2) {
+            item.classList.add('hidden');
+        }
+    });
+    const btnMostra = document.getElementById('btn-mostra-tutti');
+    const btnNascondi = document.getElementById('btn-nascondi');
+    if (btnMostra) btnMostra.classList.remove('hidden');
+    if (btnNascondi) btnNascondi.classList.add('hidden');
+}
+
+// Aggiorna meteo con nuove coordinate
+async function aggiornaMeteo(lat, lng) {
+    try {
+        const response = await fetch(`/api/meteo?lat=${lat}&lng=${lng}`);
+        const data = await response.json();
+        
+        // Aggiorna temperatura
+        const tempEl = document.getElementById('meteo-temperatura');
+        if (data.temperatura && data.temperatura !== "N/A") {
+            tempEl.textContent = `${Math.round(data.temperatura)}°C`;
+        } else {
+            tempEl.textContent = 'N/A';
+        }
+        
+        // Aggiorna location (approssimativa)
+        const locationEl = document.getElementById('meteo-location');
+        locationEl.textContent = `Posizione: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        
+        // Aggiorna alert
+        const alertContainer = document.getElementById('meteo-alert-container');
+        if (data.alert) {
+            const alertClass = data.alert.toLowerCase().includes('pioggia') 
+                ? 'bg-yellow-50 border border-yellow-200' 
+                : 'bg-orange-50 border border-orange-200';
+            const textClass = data.alert.toLowerCase().includes('pioggia')
+                ? 'text-yellow-800'
+                : 'text-orange-800';
+            
+            alertContainer.innerHTML = `
+                <div class="mt-4 p-3 rounded-lg ${alertClass}">
+                    <p class="font-semibold text-sm ${textClass}">
+                        ⚠️ ${data.alert}
+                    </p>
+                    ${data.consiglio ? `<p class="text-xs mt-1 ${textClass.replace('800', '700')}">💡 ${data.consiglio}</p>` : ''}
+                </div>
+            `;
+        } else {
+            alertContainer.innerHTML = '';
+        }
+        
+        // Aggiorna previsioni
+        const previsioniContainer = document.getElementById('previsioni-container');
+        console.log('Dati meteo ricevuti:', data);
+        console.log('Previsioni giornaliere:', data.previsioni_giornaliere);
+        
+        if (data.previsioni_giornaliere && Array.isArray(data.previsioni_giornaliere) && data.previsioni_giornaliere.length > 0) {
+            let previsioniHTML = '';
+            data.previsioni_giornaliere.forEach((prev, index) => {
+                const dataLabel = index === 0 ? 'Oggi' : index === 1 ? 'Domani' : formattaData(prev.data);
+                const tempMax = prev.temp_max !== null && prev.temp_max !== undefined ? Math.round(prev.temp_max) : '-';
+                const tempMin = prev.temp_min !== null && prev.temp_min !== undefined ? Math.round(prev.temp_min) : '-';
+                const precip = prev.precipitazioni && prev.precipitazioni > 0 ? parseFloat(prev.precipitazioni).toFixed(1) : 0;
+                const icona = getIconaMeteo(prev.codice_meteo);
+                const hiddenClass = index >= 2 ? 'hidden' : '';
+                
+                previsioniHTML += `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg previsione-item ${hiddenClass}" data-index="${index}">
+                        <div class="flex-1">
+                            <p class="text-xs font-medium text-gray-700">${dataLabel}</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs text-gray-600">${tempMax}° / ${tempMin}°</span>
+                            ${precip > 0 ? `<span class="text-xs text-blue-600">💧 ${precip}mm</span>` : `<span class="text-xs text-gray-400">${icona}</span>`}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Aggiungi pulsanti se ci sono più di 2 giorni
+            if (data.previsioni_giornaliere.length > 2) {
+                previsioniHTML += `
+                    <button 
+                        id="btn-mostra-tutti" 
+                        onclick="mostraTuttiGiorni()"
+                        class="w-full mt-2 text-xs text-green-600 hover:text-green-800 hover:underline text-center"
+                    >
+                        ▼ Mostra tutti i 7 giorni
+                    </button>
+                    <button 
+                        id="btn-nascondi" 
+                        onclick="nascondiGiorni()"
+                        class="w-full mt-2 text-xs text-green-600 hover:text-green-800 hover:underline text-center hidden"
+                    >
+                        ▲ Mostra solo Oggi e Domani
+                    </button>
+                `;
+            }
+            
+            previsioniContainer.innerHTML = previsioniHTML;
+        } else {
+            console.warn('Nessuna previsione disponibile nei dati');
+            previsioniContainer.innerHTML = '<p class="text-xs text-gray-500">Previsioni non disponibili</p>';
+        }
+    } catch (error) {
+        console.error('Errore aggiornamento meteo:', error);
+    }
+}
+</script>
 {% endblock %}
 

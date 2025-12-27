@@ -159,18 +159,72 @@
 {% endif %}
 
 <script>
-// Inizializza mappa - se c'è un campo selezionato, centra su quello
-let initialLat = 45.4642;
+// Inizializza mappa - usa geolocalizzazione o coordinate default
+let initialLat = 45.4642; // Default: Milano
 let initialLng = 9.1900;
 let initialZoom = 13;
 
+// Se c'è un campo selezionato, usa quello
 {% if campo_selezionato %}
-initialLat = {{ campo_selezionato.centro_lat }};
-initialLng = {{ campo_selezionato.centro_lng }};
+initialLat = {% if campo_selezionato.centro_lat %}{{ campo_selezionato.centro_lat }}{% else %}45.4642{% endif %};
+initialLng = {% if campo_selezionato.centro_lng %}{{ campo_selezionato.centro_lng }}{% else %}9.1900{% endif %};
 initialZoom = 15;
 {% endif %}
 
+// Crea mappa con coordinate iniziali (verranno aggiornate se disponibile geolocalizzazione)
 let map = L.map('map').setView([initialLat, initialLng], initialZoom);
+
+// Richiedi geolocalizzazione per centrare mappa
+if (navigator.geolocation) {
+    // Prova a ottenere posizione salvata
+    const savedPos = localStorage.getItem('userLocation');
+    if (savedPos) {
+        try {
+            const pos = JSON.parse(savedPos);
+            initialLat = pos.lat;
+            initialLng = pos.lng;
+            map.setView([initialLat, initialLng], 13);
+        } catch (e) {
+            console.error('Errore parsing posizione salvata:', e);
+        }
+    }
+    
+    // Richiedi geolocalizzazione
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            // Salva posizione
+            localStorage.setItem('userLocation', JSON.stringify({lat: lat, lng: lng}));
+            
+            // Centra mappa sulla posizione (solo se non c'è campo selezionato)
+            {% if not campo_selezionato %}
+            map.setView([lat, lng], 13);
+            {% endif %}
+            
+            // Mostra marker posizione
+            L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background-color: #3b82f6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">📍</div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map).bindPopup('La tua posizione').openPopup();
+        },
+        function(error) {
+            console.log('Geolocalizzazione non disponibile:', error.message);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 300000 // 5 minuti
+        }
+    );
+} else {
+    console.log('Geolocalizzazione non supportata dal browser');
+}
 let polygonPoints = [];
 let polygonLayer = null;
 let markers = []; // Array per salvare i marker
