@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Libretto Manutenzione - {{ mezzo.nome }} - AgriNote{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Libretto Manutenzione</h2>
+            <p class="text-gray-600">{{ mezzo.nome }}</p>
+        </div>
+        <a href="/mezzi" class="text-green-600 hover:text-green-800 underline">← Torna ai Mezzi</a>
+    </div>
+</div>
+
+<!-- Info Mezzo -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">ℹ️ Informazioni Mezzo</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <p class="text-sm text-gray-600">Tipo</p>
+            <p class="font-semibold">{{ mezzo.tipo_mezzo or "-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600">Marca/Modello</p>
+            <p class="font-semibold">{{ mezzo.marca or "-" }} {{ mezzo.modello or "" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600">Targa</p>
+            <p class="font-semibold">{{ mezzo.targa or "-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600">Anno Acquisto</p>
+            <p class="font-semibold">{{ mezzo.anno_acquisto or "-" }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600">Prossima Revisione</p>
+            <p class="font-semibold {% if (mezzo.data_revisione - oggi).days < 30 %}text-red-600{% elif (mezzo.data_revisione - oggi).days < 60 %}text-yellow-600{% else %}text-green-600{% endif %}">
+                {{ mezzo.data_revisione }}
+            </p>
+        </div>
+        {% if mezzo.note_manutenzione %}
+        <div class="md:col-span-3">
+            <p class="text-sm text-gray-600">Note</p>
+            <p class="font-semibold">{{ mezzo.note_manutenzione }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Form Nuovo Intervento -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">➕ Registra Nuovo Intervento</h3>
+    <form method="POST" action="/mezzi/{{ mezzo.id }}/intervento/nuovo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label for="data_intervento" class="block text-sm font-medium text-gray-700 mb-2">
+                Data Intervento *
+            </label>
+            <input 
+                type="date" 
+                id="data_intervento" 
+                name="data_intervento" 
+                required
+                value="{{ oggi.isoformat() if oggi else '' }}"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+        </div>
+        <div>
+            <label for="tipo_intervento" class="block text-sm font-medium text-gray-700 mb-2">
+                Tipo Intervento *
+            </label>
+            <select 
+                id="tipo_intervento" 
+                name="tipo_intervento" 
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+                <option value="">Seleziona...</option>
+                <option value="Revisione">Revisione</option>
+                <option value="Revisione Annuale">Revisione Annuale</option>
+                <option value="Tagliando">Tagliando</option>
+                <option value="Riparazione">Riparazione</option>
+                <option value="Manutenzione Straordinaria">Manutenzione Straordinaria</option>
+                <option value="Controllo">Controllo</option>
+                <option value="Altro">Altro</option>
+            </select>
+        </div>
+        <div>
+            <label for="officina" class="block text-sm font-medium text-gray-700 mb-2">
+                Officina/Meccanico
+            </label>
+            <input 
+                type="text" 
+                id="officina" 
+                name="officina" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Nome officina"
+            >
+        </div>
+        <div>
+            <label for="costo" class="block text-sm font-medium text-gray-700 mb-2">
+                Costo (€)
+            </label>
+            <input 
+                type="number" 
+                id="costo" 
+                name="costo" 
+                step="0.01"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="0.00"
+            >
+        </div>
+        <div>
+            <label for="prossima_scadenza" class="block text-sm font-medium text-gray-700 mb-2">
+                Prossima Scadenza
+            </label>
+            <input 
+                type="date" 
+                id="prossima_scadenza" 
+                name="prossima_scadenza" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+        </div>
+        <div class="md:col-span-2">
+            <label for="descrizione" class="block text-sm font-medium text-gray-700 mb-2">
+                Descrizione Intervento
+            </label>
+            <textarea 
+                id="descrizione" 
+                name="descrizione" 
+                rows="3"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Dettagli dell'intervento effettuato..."
+            ></textarea>
+        </div>
+        <div class="md:col-span-2">
+            <label for="note" class="block text-sm font-medium text-gray-700 mb-2">
+                Note Aggiuntive
+            </label>
+            <textarea 
+                id="note" 
+                name="note" 
+                rows="2"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Note, osservazioni, prossimi interventi programmati..."
+            ></textarea>
+        </div>
+        <div class="md:col-span-2">
+            <button 
+                type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200"
+            >
+                Registra Intervento
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Storico Interventi -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">📋 Storico Interventi</h3>
+    {% if interventi %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Officina</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Costo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prossima Scadenza</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrizione</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for intervento in interventi %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ intervento.data_intervento }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded bg-blue-100 text-blue-800">
+                            {{ intervento.tipo_intervento }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ intervento.officina or "-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if intervento.costo %}{{ "%.2f"|format(intervento.costo) }} €{% else %}-{% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if intervento.prossima_scadenza %}
+                            <span class="{% if (intervento.prossima_scadenza - oggi).days < 30 %}text-red-600 font-semibold{% elif (intervento.prossima_scadenza - oggi).days < 60 %}text-yellow-600{% else %}text-green-600{% endif %}">
+                                {{ intervento.prossima_scadenza }}
+                            </span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ intervento.descrizione or "-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">Nessun intervento registrato. Registra il primo intervento!</p>
+    {% endif %}
+</div>
+{% endblock %}
+

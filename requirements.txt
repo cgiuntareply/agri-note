@@ -1,0 +1,16 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+jinja2==3.1.2
+python-multipart==0.0.6
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+pymupdf==1.23.8
+aiofiles==23.2.1
+httpx==0.25.2
+
+# Opzionali per OCR avanzato (PDF scansionati/immagini)
+# tesseract-ocr  # Richiede installazione sistema: brew install tesseract (macOS) o apt-get install tesseract-ocr (Linux)
+# pytesseract==0.3.10  # Wrapper Python per Tesseract (scommentare se installi Tesseract)
+

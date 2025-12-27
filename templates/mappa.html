@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}Mappa Campi - AgriNote{% endblock %}
+
+{% block extra_head %}
+<style>
+    #map {
+        height: 600px;
+        width: 100%;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800">Mappa Campi</h2>
+    <p class="text-gray-600">Disegna i tuoi campi sulla mappa</p>
+</div>
+
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div id="map"></div>
+</div>
+
+<!-- Form per salvare campo -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">Salva Nuovo Campo</h3>
+    <form id="formCampo" class="space-y-4">
+        <div>
+            <label for="nomeCampo" class="block text-sm font-medium text-gray-700 mb-2">
+                Nome Campo
+            </label>
+            <input 
+                type="text" 
+                id="nomeCampo" 
+                name="nome" 
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: Campo Nord"
+            >
+        </div>
+        <div>
+            <label for="coltura" class="block text-sm font-medium text-gray-700 mb-2">
+                Coltura Attuale (opzionale)
+            </label>
+            <input 
+                type="text" 
+                id="coltura" 
+                name="coltura" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: Mais"
+            >
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">
+                <strong>Istruzioni:</strong> Clicca sulla mappa per aggiungere punti. Clicca vicino al primo punto o usa "Chiudi Poligono" per completare. Usa "Cancella Ultimo Punto" per correggere.
+            </p>
+            <p id="areaInfo" class="text-sm font-semibold text-green-600 mb-2"></p>
+            <div class="flex space-x-2 mb-2">
+                <button 
+                    type="button"
+                    id="btnChiudi"
+                    disabled
+                    onclick="chiudiPoligono()"
+                    class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                    Chiudi Poligono
+                </button>
+                <button 
+                    type="button"
+                    id="btnCancellaUltimo"
+                    disabled
+                    onclick="cancellaUltimoPunto()"
+                    class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                    Cancella Ultimo Punto
+                </button>
+                <button 
+                    type="button"
+                    onclick="resetPoligono()"
+                    class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                    Reset Completo
+                </button>
+            </div>
+        </div>
+        <button 
+            type="submit"
+            id="btnSalva"
+            disabled
+            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+            Salva Campo
+        </button>
+    </form>
+</div>
+
+<!-- Lista Campi Esistenti -->
+{% if campi %}
+<div class="bg-white rounded-lg shadow-md p-6 mt-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">Campi Salvati</h3>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Superficie (ha)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coltura</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for campo in campi %}
+                <tr 
+                    class="hover:bg-green-50 transition-colors {% if campo_selezionato and campo_selezionato.id == campo.id %}bg-green-100{% endif %}"
+                >
+                    <td 
+                        class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer"
+                        onclick="visualizzaCampo({{ campo.id }}, {% if campo.centro_lat %}{{ campo.centro_lat }}{% else %}45.4642{% endif %}, {% if campo.centro_lng %}{{ campo.centro_lng }}{% else %}9.1900{% endif %}, {{ campo.coordinate_poligono|tojson if campo.coordinate_poligono else '[]' }}, {{ campo.superficie_ettari }})"
+                    >
+                        {{ campo.nome }}
+                    </td>
+                    <td 
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer"
+                        onclick="visualizzaCampo({{ campo.id }}, {% if campo.centro_lat %}{{ campo.centro_lat }}{% else %}45.4642{% endif %}, {% if campo.centro_lng %}{{ campo.centro_lng }}{% else %}9.1900{% endif %}, {{ campo.coordinate_poligono|tojson if campo.coordinate_poligono else '[]' }}, {{ campo.superficie_ettari }})"
+                    >
+                        {{ campo.superficie_ettari }} ha
+                    </td>
+                    <td 
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer"
+                        onclick="visualizzaCampo({{ campo.id }}, {% if campo.centro_lat %}{{ campo.centro_lat }}{% else %}45.4642{% endif %}, {% if campo.centro_lng %}{{ campo.centro_lng }}{% else %}9.1900{% endif %}, {{ campo.coordinate_poligono|tojson if campo.coordinate_poligono else '[]' }}, {{ campo.superficie_ettari }})"
+                    >
+                        {{ campo.coltura_attuale or "-" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex space-x-2">
+                            <button
+                                onclick="visualizzaCampo({{ campo.id }}, {% if campo.centro_lat %}{{ campo.centro_lat }}{% else %}45.4642{% endif %}, {% if campo.centro_lng %}{{ campo.centro_lng }}{% else %}9.1900{% endif %}, {{ campo.coordinate_poligono|tojson if campo.coordinate_poligono else '[]' }}, {{ campo.superficie_ettari }})"
+                                class="text-green-600 hover:text-green-800 hover:underline"
+                                title="Visualizza sulla mappa"
+                            >
+                                👁️ Visualizza
+                            </button>
+                            <button
+                                onclick="eliminaCampo({{ campo.id }}, '{{ campo.nome }}')"
+                                class="text-red-600 hover:text-red-800 hover:underline"
+                                title="Elimina campo"
+                            >
+                                🗑️ Elimina
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Inizializza mappa - se c'è un campo selezionato, centra su quello
+let initialLat = 45.4642;
+let initialLng = 9.1900;
+let initialZoom = 13;
+
+{% if campo_selezionato %}
+initialLat = {{ campo_selezionato.centro_lat }};
+initialLng = {{ campo_selezionato.centro_lng }};
+initialZoom = 15;
+{% endif %}
+
+let map = L.map('map').setView([initialLat, initialLng], initialZoom);
+let polygonPoints = [];
+let polygonLayer = null;
+let markers = []; // Array per salvare i marker
+let isPoligonoChiuso = false;
+let campoVisualizzato = null; // Layer del campo visualizzato
+
+// Layer Mappa Standard
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    name: 'Mappa Standard'
+});
+
+// Layer Vista Satellitare (Esri World Imagery - Gratuito)
+const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, IGP, and the GIS User Community',
+    name: 'Vista Satellitare'
+});
+
+// Aggiungi layer di default
+osmLayer.addTo(map);
+
+// Controllo layer (switch tra mappa e satellite)
+const baseMaps = {
+    "Mappa Standard": osmLayer,
+    "Vista Satellitare": satelliteLayer
+};
+L.control.layers(baseMaps).addTo(map);
+
+// Se c'è un campo selezionato, visualizzalo all'avvio
+{% if campo_selezionato %}
+window.addEventListener('DOMContentLoaded', function() {
+    visualizzaCampo(
+        {{ campo_selezionato.id }},
+        {% if campo_selezionato.centro_lat %}{{ campo_selezionato.centro_lat }}{% else %}45.4642{% endif %},
+        {% if campo_selezionato.centro_lng %}{{ campo_selezionato.centro_lng }}{% else %}9.1900{% endif %},
+        {{ campo_selezionato.coordinate_poligono|tojson if campo_selezionato.coordinate_poligono else '[]' }},
+        {{ campo_selezionato.superficie_ettari }}
+    );
+});
+{% endif %}
+
+// Funzione per visualizzare un campo salvato
+function visualizzaCampo(campoId, centroLat, centroLng, coordinate, superficieEttari = null) {
+    // Rimuovi campo precedentemente visualizzato
+    if (campoVisualizzato) {
+        map.removeLayer(campoVisualizzato);
+        campoVisualizzato = null;
+    }
+    
+    // Rimuovi anche eventuali marker
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+    
+    // Centra mappa sul campo
+    map.setView([centroLat, centroLng], 15);
+    
+    // Disegna poligono del campo
+    if (coordinate && coordinate.length >= 3) {
+        // Chiudi il poligono aggiungendo il primo punto alla fine
+        const closedPoints = [...coordinate, coordinate[0]];
+        
+        campoVisualizzato = L.polygon(closedPoints, {
+            color: '#22c55e',
+            fillColor: '#22c55e',
+            fillOpacity: 0.3,
+            weight: 3
+        }).addTo(map);
+        
+        // Prepara testo popup con superficie
+        let popupText = `<strong>Campo ID: ${campoId}</strong><br>`;
+        if (superficieEttari !== null && superficieEttari > 0) {
+            popupText += `<strong>Superficie: ${superficieEttari.toFixed(2)} ettari</strong><br>`;
+        }
+        popupText += `Centro: ${centroLat.toFixed(6)}, ${centroLng.toFixed(6)}<br>`;
+        popupText += `Vertici: ${coordinate.length}`;
+        
+        // Aggiungi popup con info campo
+        campoVisualizzato.bindPopup(popupText);
+        
+        // Aggiungi marker al centro con superficie
+        let centerIconHtml = `<div style="background-color: #3b82f6; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">📍</div>`;
+        
+        // Se c'è la superficie, mostra anche quella nel marker
+        if (superficieEttari !== null && superficieEttari > 0) {
+            centerIconHtml = `<div style="background-color: #3b82f6; color: white; border-radius: 8px; padding: 4px 8px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); white-space: nowrap;">${superficieEttari.toFixed(2)} ha</div>`;
+        }
+        
+        const centerMarker = L.marker([centroLat, centroLng], {
+            icon: L.divIcon({
+                className: 'custom-marker',
+                html: centerIconHtml,
+                iconSize: superficieEttari !== null && superficieEttari > 0 ? [80, 30] : [30, 30],
+                iconAnchor: superficieEttari !== null && superficieEttari > 0 ? [40, 15] : [15, 15]
+            })
+        }).addTo(map);
+        markers.push(centerMarker);
+        
+        // Aggiungi marker numerati ai vertici
+        coordinate.forEach((coord, index) => {
+            const marker = L.marker([coord[0], coord[1]], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background-color: #22c55e; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${index + 1}</div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(map);
+            markers.push(marker);
+        });
+        
+        // Apri popup automaticamente
+        campoVisualizzato.openPopup();
+    }
+    
+    // Aggiorna URL senza ricaricare la pagina
+    const url = new URL(window.location);
+    url.searchParams.set('campo_id', campoId);
+    window.history.pushState({}, '', url);
+}
+
+// Funzione per calcolare distanza tra due punti (in metri approssimativi)
+function distanzaPunti(p1, p2) {
+    const R = 6371000; // Raggio Terra in metri
+    const lat1 = p1[0] * Math.PI / 180;
+    const lat2 = p2[0] * Math.PI / 180;
+    const deltaLat = (p2[0] - p1[0]) * Math.PI / 180;
+    const deltaLng = (p2[1] - p1[1]) * Math.PI / 180;
+    
+    const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    
+    return R * c;
+}
+
+// Gestione disegno poligono
+map.on('click', function(e) {
+    if (isPoligonoChiuso) {
+        return; // Non aggiungere punti se il poligono è già chiuso
+    }
+    
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    const nuovoPunto = [lat, lng];
+    
+    // Se ci sono già punti, controlla se si sta cliccando vicino al primo punto (chiusura automatica)
+    if (polygonPoints.length >= 3) {
+        const primoPunto = polygonPoints[0];
+        const distanza = distanzaPunti(nuovoPunto, primoPunto);
+        
+        // Se la distanza è minore di 50 metri, chiudi il poligono
+        if (distanza < 50) {
+            chiudiPoligono();
+            return;
+        }
+    }
+    
+    // Aggiungi nuovo punto
+    polygonPoints.push(nuovoPunto);
+    
+    // Aggiungi marker numerato
+    const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #22c55e; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${polygonPoints.length}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        })
+    }).addTo(map);
+    markers.push(marker);
+    
+    // Abilita pulsanti
+    document.getElementById('btnChiudi').disabled = polygonPoints.length < 3;
+    document.getElementById('btnCancellaUltimo').disabled = polygonPoints.length === 0;
+    
+    // Se ci sono almeno 3 punti, disegna/aggiorna poligono aperto
+    if (polygonPoints.length >= 3 && !isPoligonoChiuso) {
+        aggiornaPoligono();
+    }
+});
+
+// Aggiorna il poligono (ancora aperto)
+function aggiornaPoligono() {
+    // Rimuovi poligono precedente
+    if (polygonLayer) {
+        map.removeLayer(polygonLayer);
+    }
+    
+    // Disegna poligono aperto (linea che collega i punti)
+    polygonLayer = L.polyline(polygonPoints, {
+        color: 'green',
+        weight: 3,
+        opacity: 0.7
+    }).addTo(map);
+    
+    // Calcola area approssimativa (anche se non chiuso)
+    if (polygonPoints.length >= 3) {
+        const area = calcolaArea(polygonPoints);
+        document.getElementById('areaInfo').textContent = `Area stimata: ${area.toFixed(2)} ettari (poligono aperto - clicca "Chiudi Poligono" per completare)`;
+    }
+}
+
+// Chiudi il poligono
+function chiudiPoligono() {
+    if (polygonPoints.length < 3) {
+        alert('Servono almeno 3 punti per chiudere il poligono');
+        return;
+    }
+    
+    isPoligonoChiuso = true;
+    
+    // Rimuovi poligono aperto
+    if (polygonLayer) {
+        map.removeLayer(polygonLayer);
+    }
+    
+    // Chiudi il poligono (aggiungi primo punto alla fine)
+    const closedPoints = [...polygonPoints, polygonPoints[0]];
+    polygonLayer = L.polygon(closedPoints, {
+        color: 'green',
+        fillColor: 'green',
+        fillOpacity: 0.3,
+        weight: 3
+    }).addTo(map);
+    
+    // Calcola area finale
+    const area = calcolaArea(polygonPoints);
+    document.getElementById('areaInfo').textContent = `✅ Poligono chiuso - Area: ${area.toFixed(2)} ettari`;
+    document.getElementById('btnSalva').disabled = false;
+    document.getElementById('btnChiudi').disabled = true;
+}
+
+// Cancella ultimo punto
+function cancellaUltimoPunto() {
+    if (polygonPoints.length === 0) return;
+    
+    // Rimuovi ultimo marker
+    if (markers.length > 0) {
+        const ultimoMarker = markers.pop();
+        map.removeLayer(ultimoMarker);
+    }
+    
+    // Rimuovi ultimo punto
+    polygonPoints.pop();
+    
+    // Aggiorna numerazione marker
+    markers.forEach((marker, index) => {
+        const punto = polygonPoints[index];
+        marker.setLatLng([punto[0], punto[1]]);
+        marker.setIcon(L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #22c55e; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${index + 1}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        }));
+    });
+    
+    // Aggiorna poligono
+    if (polygonLayer) {
+        map.removeLayer(polygonLayer);
+        polygonLayer = null;
+    }
+    
+    if (polygonPoints.length >= 3) {
+        aggiornaPoligono();
+    } else {
+        document.getElementById('areaInfo').textContent = '';
+    }
+    
+    // Aggiorna stato pulsanti
+    document.getElementById('btnChiudi').disabled = polygonPoints.length < 3;
+    document.getElementById('btnCancellaUltimo').disabled = polygonPoints.length === 0;
+    document.getElementById('btnSalva').disabled = true;
+    isPoligonoChiuso = false;
+}
+
+// Funzione calcolo area (formula Shoelace con conversione precisa)
+function calcolaArea(points) {
+    if (points.length < 3) return 0;
+    
+    // Calcola latitudine media per conversione precisa
+    let latMedia = 0;
+    points.forEach(p => latMedia += p[0]);
+    latMedia = latMedia / points.length;
+    
+    // Metri per grado di latitudine (costante)
+    const metriPerGradoLat = 111320;
+    
+    // Metri per grado di longitudine (dipende dalla latitudine)
+    const metriPerGradoLng = 111320 * Math.cos(latMedia * Math.PI / 180);
+    
+    // Formula Shoelace per area poligono (in gradi²)
+    let areaGradi2 = 0;
+    const n = points.length;
+    for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        areaGradi2 += points[i][1] * points[j][0];  // lng * lat
+        areaGradi2 -= points[j][1] * points[i][0];  // lng * lat
+    }
+    areaGradi2 = Math.abs(areaGradi2) / 2.0;
+    
+    // Conversione da gradi² a metri²
+    // 1 grado² = (metriPerGradoLat * metriPerGradoLng) metri²
+    const areaMetri2 = areaGradi2 * metriPerGradoLat * metriPerGradoLng;
+    
+    // Conversione da metri² a ettari (1 ettaro = 10,000 m²)
+    const areaEttari = areaMetri2 / 10000;
+    
+    return areaEttari;
+}
+
+// Reset poligono completo
+function resetPoligono() {
+    polygonPoints = [];
+    isPoligonoChiuso = false;
+    
+    // Rimuovi tutti i marker
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+    
+    // Rimuovi poligono
+    if (polygonLayer) {
+        map.removeLayer(polygonLayer);
+        polygonLayer = null;
+    }
+    
+    // Reset UI
+    document.getElementById('areaInfo').textContent = '';
+    document.getElementById('btnSalva').disabled = true;
+    document.getElementById('btnChiudi').disabled = true;
+    document.getElementById('btnCancellaUltimo').disabled = true;
+}
+
+// Form submit
+document.getElementById('formCampo').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (polygonPoints.length < 3) {
+        alert('Disegna almeno 3 punti sulla mappa');
+        return;
+    }
+    
+    if (!isPoligonoChiuso) {
+        if (!confirm('Il poligono non è chiuso. Vuoi chiuderlo automaticamente prima di salvare?')) {
+            return;
+        }
+        chiudiPoligono();
+    }
+    
+    const formData = new FormData(this);
+    
+    // Debug: verifica coordinate prima di inviare
+    console.log('Coordinate da inviare:', polygonPoints);
+    console.log('Numero punti:', polygonPoints.length);
+    console.log('JSON coordinate:', JSON.stringify(polygonPoints));
+    
+    formData.append('coordinate', JSON.stringify(polygonPoints));
+    
+    try {
+        const response = await fetch('/api/campo/salva', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert(`Campo salvato! Superficie: ${result.superficie} ettari`);
+            resetPoligono();
+            this.reset();
+            location.reload();
+        } else {
+            alert('Errore nel salvataggio');
+        }
+    } catch (error) {
+        alert('Errore: ' + error.message);
+    }
+});
+
+// Funzione per eliminare un campo
+async function eliminaCampo(campoId, nomeCampo) {
+    // Conferma eliminazione
+    if (!confirm(`Sei sicuro di voler eliminare il campo "${nomeCampo}"?\n\nQuesta azione non può essere annullata.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/campo/${campoId}/elimina`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message || 'Campo eliminato con successo');
+            // Ricarica la pagina per aggiornare la lista
+            window.location.reload();
+        } else {
+            alert('Errore durante l\'eliminazione del campo');
+        }
+    } catch (error) {
+        alert('Errore: ' + error.message);
+    }
+}
+</script>
+{% endblock %}
+

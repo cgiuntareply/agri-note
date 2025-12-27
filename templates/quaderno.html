@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Quaderno di Campagna - AgriNote{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800">Quaderno di Campagna</h2>
+    <p class="text-gray-600">Registra i trattamenti effettuati sui campi</p>
+</div>
+
+<!-- Form Nuovo Trattamento -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">➕ Nuovo Trattamento</h3>
+    <form method="POST" action="/quaderno/trattamento/nuovo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label for="campo_id" class="block text-sm font-medium text-gray-700 mb-2">
+                Campo *
+            </label>
+            <select 
+                id="campo_id" 
+                name="campo_id" 
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+                <option value="">Seleziona campo...</option>
+                {% for campo in campi %}
+                <option value="{{ campo.id }}" data-ettari="{{ campo.superficie_ettari }}">
+                    {{ campo.nome }} ({{ campo.superficie_ettari }} ha)
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="data" class="block text-sm font-medium text-gray-700 mb-2">
+                Data Trattamento *
+            </label>
+            <input 
+                type="date" 
+                id="data" 
+                name="data" 
+                required
+                value="{{ oggi.isoformat() if oggi else '' }}"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+        </div>
+        <div>
+            <label for="prodotto_id" class="block text-sm font-medium text-gray-700 mb-2">
+                Prodotto *
+            </label>
+            <select 
+                id="prodotto_id" 
+                name="prodotto_id" 
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+                <option value="">Seleziona prodotto...</option>
+                {% for prodotto in prodotti %}
+                <option value="{{ prodotto.id }}">
+                    {{ prodotto.nome_commerciale }} ({{ prodotto.tipo.value }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="quantita_per_ettaro" class="block text-sm font-medium text-gray-700 mb-2">
+                Dose per Ettaro (kg/ha o L/ha) *
+            </label>
+            <input 
+                type="number" 
+                id="quantita_per_ettaro" 
+                name="quantita_per_ettaro" 
+                step="0.01"
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="0.00"
+            >
+        </div>
+        <div>
+            <label for="avversita" class="block text-sm font-medium text-gray-700 mb-2">
+                Avversità (opzionale)
+            </label>
+            <input 
+                type="text" 
+                id="avversita" 
+                name="avversita" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: Afidi, Ruggine"
+            >
+        </div>
+        <div>
+            <label for="operatore" class="block text-sm font-medium text-gray-700 mb-2">
+                Operatore (opzionale)
+            </label>
+            <input 
+                type="text" 
+                id="operatore" 
+                name="operatore" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Nome operatore"
+            >
+        </div>
+        <div class="md:col-span-2">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p class="text-sm text-blue-800">
+                    <strong>Quantità Totale Calcolata:</strong> 
+                    <span id="quantitaTotale" class="font-bold">0.00</span> 
+                    <span id="unitaTotale"></span>
+                </p>
+                <p class="text-xs text-blue-600 mt-1">
+                    Formula: Dose per ettaro × Superficie campo
+                </p>
+            </div>
+            <button 
+                type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200"
+            >
+                Registra Trattamento
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Tabella Trattamenti (Allegato A/B) -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">📋 Registro Trattamenti</h3>
+    {% if trattamenti %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prodotto</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avversità</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dose (kg/ha)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantità Totale</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Operatore</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for trattamento in trattamenti %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ trattamento.data }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ trattamento.campo.nome }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ trattamento.prodotto.nome_commerciale }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded {% if trattamento.prodotto.tipo.value == 'Fitofarmaco' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                            {{ trattamento.prodotto.tipo.value }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ trattamento.avversita or "-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ trattamento.quantita_per_ettaro }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ trattamento.quantita_totale }} {{ trattamento.prodotto.unita_misura }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ trattamento.operatore or "-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button
+                            onclick="eliminaTrattamento({{ trattamento.id }}, '{{ trattamento.campo.nome }}', '{{ trattamento.data }}')"
+                            class="text-red-600 hover:text-red-800 hover:underline"
+                            title="Elimina trattamento"
+                        >
+                            🗑️ Elimina
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">Nessun trattamento registrato. Aggiungi il primo trattamento!</p>
+    {% endif %}
+</div>
+
+<script>
+// Calcolo automatico quantità totale
+const campoSelect = document.getElementById('campo_id');
+const doseInput = document.getElementById('quantita_per_ettaro');
+const quantitaTotaleSpan = document.getElementById('quantitaTotale');
+const unitaTotaleSpan = document.getElementById('unitaTotale');
+
+function calcolaTotale() {
+    const campoOption = campoSelect.options[campoSelect.selectedIndex];
+    const ettari = parseFloat(campoOption.dataset.ettari) || 0;
+    const dose = parseFloat(doseInput.value) || 0;
+    const totale = ettari * dose;
+    
+    quantitaTotaleSpan.textContent = totale.toFixed(2);
+    
+    // Determina unità dal prodotto selezionato
+    const prodottoSelect = document.getElementById('prodotto_id');
+    const prodottoOption = prodottoSelect.options[prodottoSelect.selectedIndex];
+    // Per semplicità, usiamo l'unità del prodotto (dovrebbe essere kg o L)
+    // In un'implementazione completa, potresti recuperare l'unità via API
+}
+
+campoSelect.addEventListener('change', calcolaTotale);
+doseInput.addEventListener('input', calcolaTotale);
+document.getElementById('prodotto_id').addEventListener('change', function() {
+    // Potresti recuperare l'unità del prodotto qui
+    unitaTotaleSpan.textContent = ''; // Placeholder
+});
+
+// Funzione per eliminare un trattamento
+async function eliminaTrattamento(trattamentoId, nomeCampo, dataTrattamento) {
+    // Conferma eliminazione
+    if (!confirm(`Sei sicuro di voler eliminare il trattamento del ${dataTrattamento} sul campo "${nomeCampo}"?\n\nQuesta azione non può essere annullata.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/quaderno/trattamento/${trattamentoId}/elimina`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message || 'Trattamento eliminato con successo');
+            // Ricarica la pagina per aggiornare la lista
+            window.location.reload();
+        } else {
+            alert('Errore durante l\'eliminazione del trattamento');
+        }
+    } catch (error) {
+        alert('Errore: ' + error.message);
+    }
+}
+</script>
+{% endblock %}
+

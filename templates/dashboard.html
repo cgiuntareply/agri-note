@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AgriNote{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800">Dashboard</h2>
+    <p class="text-gray-600">Benvenuto, {{ user.username }}</p>
+</div>
+
+{% if azienda %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <!-- Card Azienda -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-xl font-semibold text-green-600 mb-4">📋 Azienda</h3>
+        <div class="space-y-2">
+            <p><strong>Ragione Sociale:</strong> {{ azienda.ragione_sociale }}</p>
+            <p><strong>P.IVA:</strong> {{ azienda.p_iva }}</p>
+            <p><strong>Indirizzo:</strong> {{ azienda.indirizzo }}</p>
+            <p><strong>Legale Rappresentante:</strong> {{ azienda.legale_rappresentante }}</p>
+            <div class="mt-4">
+                <a href="/azienda/modifica" class="text-sm text-green-600 hover:text-green-800 underline">
+                    ✏️ Modifica dati azienda
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card Meteo -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-xl font-semibold text-green-600 mb-4">🌤️ Meteo</h3>
+        <div class="space-y-2">
+            <p class="text-3xl font-bold text-blue-600">
+                {% if meteo.temperatura != "N/A" %}{{ meteo.temperatura }}°C{% else %}N/A{% endif %}
+            </p>
+            <p class="text-gray-600">Milano, Italia</p>
+            {% if meteo.alert %}
+            <div class="mt-4 p-3 rounded-lg {% if 'pioggia' in meteo.alert.lower() %}bg-yellow-50 border border-yellow-200{% else %}bg-orange-50 border border-orange-200{% endif %}">
+                <p class="font-semibold text-sm {% if 'pioggia' in meteo.alert.lower() %}text-yellow-800{% else %}text-orange-800{% endif %}">
+                    ⚠️ {{ meteo.alert }}
+                </p>
+                {% if meteo.consiglio %}
+                <p class="text-xs mt-1 {% if 'pioggia' in meteo.alert.lower() %}text-yellow-700{% else %}text-orange-700{% endif %}">
+                    💡 {{ meteo.consiglio }}
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Scadenze Mezzi -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">⚠️ Scadenze Prossime (30 giorni)</h3>
+    {% if scadenze %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mezzo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Targa</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Revisione</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giorni Rimanenti</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for mezzo in scadenze %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ mezzo.nome }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ mezzo.targa or "-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ mezzo.data_revisione }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% set giorni = (mezzo.data_revisione - oggi).days %}
+                        <span class="px-2 py-1 rounded {% if giorni < 7 %}bg-red-100 text-red-800{% elif giorni < 15 %}bg-yellow-100 text-yellow-800{% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ giorni }} giorni
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">Nessuna scadenza nei prossimi 30 giorni</p>
+    {% endif %}
+</div>
+
+<!-- Statistiche Rapide -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-green-50 rounded-lg shadow-md p-6 text-center">
+        <h4 class="text-lg font-semibold text-green-700 mb-2">Campi</h4>
+        <p class="text-3xl font-bold text-green-600">{{ azienda.campi|length }}</p>
+    </div>
+    <div class="bg-blue-50 rounded-lg shadow-md p-6 text-center">
+        <h4 class="text-lg font-semibold text-blue-700 mb-2">Prodotti</h4>
+        <p class="text-3xl font-bold text-blue-600">{{ azienda.prodotti|length }}</p>
+    </div>
+    <div class="bg-yellow-50 rounded-lg shadow-md p-6 text-center">
+        <h4 class="text-lg font-semibold text-yellow-700 mb-2">Mezzi</h4>
+        <p class="text-3xl font-bold text-yellow-600">{{ azienda.mezzi|length }}</p>
+    </div>
+</div>
+{% else %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+    <p class="text-yellow-800">⚠️ Nessuna azienda associata. Contatta l'amministratore.</p>
+</div>
+{% endif %}
+{% endblock %}
+

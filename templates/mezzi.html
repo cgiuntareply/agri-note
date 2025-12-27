@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Mezzi - AgriNote{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800">Gestione Mezzi Agricoli</h2>
+    <p class="text-gray-600">Gestisci i tuoi mezzi e le loro manutenzioni</p>
+</div>
+
+<!-- Form Nuovo Mezzo -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">➕ Aggiungi Nuovo Mezzo</h3>
+    <form method="POST" action="/mezzi/nuovo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label for="nome" class="block text-sm font-medium text-gray-700 mb-2">
+                Nome Mezzo *
+            </label>
+            <input 
+                type="text" 
+                id="nome" 
+                name="nome" 
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: Trattore John Deere"
+            >
+        </div>
+        <div>
+            <label for="tipo_mezzo" class="block text-sm font-medium text-gray-700 mb-2">
+                Tipo Mezzo
+            </label>
+            <select 
+                id="tipo_mezzo" 
+                name="tipo_mezzo" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+                <option value="">Seleziona...</option>
+                <option value="Trattore">Trattore</option>
+                <option value="Spandiconcime">Spandiconcime</option>
+                <option value="Atomizzatore">Atomizzatore</option>
+                <option value="Aratro">Aratro</option>
+                <option value="Seminatrice">Seminatrice</option>
+                <option value="Mietitrebbia">Mietitrebbia</option>
+                <option value="Altro">Altro</option>
+            </select>
+        </div>
+        <div>
+            <label for="marca" class="block text-sm font-medium text-gray-700 mb-2">
+                Marca
+            </label>
+            <input 
+                type="text" 
+                id="marca" 
+                name="marca" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: John Deere"
+            >
+        </div>
+        <div>
+            <label for="modello" class="block text-sm font-medium text-gray-700 mb-2">
+                Modello
+            </label>
+            <input 
+                type="text" 
+                id="modello" 
+                name="modello" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: 6120M"
+            >
+        </div>
+        <div>
+            <label for="targa" class="block text-sm font-medium text-gray-700 mb-2">
+                Targa
+            </label>
+            <input 
+                type="text" 
+                id="targa" 
+                name="targa" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: AB123CD"
+            >
+        </div>
+        <div>
+            <label for="anno_acquisto" class="block text-sm font-medium text-gray-700 mb-2">
+                Anno Acquisto
+            </label>
+            <input 
+                type="number" 
+                id="anno_acquisto" 
+                name="anno_acquisto" 
+                min="1900"
+                max="2024"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Es: 2020"
+            >
+        </div>
+        <div>
+            <label for="data_revisione" class="block text-sm font-medium text-gray-700 mb-2">
+                Prossima Revisione *
+            </label>
+            <input 
+                type="date" 
+                id="data_revisione" 
+                name="data_revisione" 
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            >
+        </div>
+        <div class="md:col-span-2">
+            <label for="note_manutenzione" class="block text-sm font-medium text-gray-700 mb-2">
+                Note Manutenzione
+            </label>
+            <textarea 
+                id="note_manutenzione" 
+                name="note_manutenzione" 
+                rows="3"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Note generali sul mezzo..."
+            ></textarea>
+        </div>
+        <div class="md:col-span-2">
+            <button 
+                type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200"
+            >
+                Aggiungi Mezzo
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Lista Mezzi -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h3 class="text-xl font-semibold text-green-600 mb-4">🚜 Mezzi Registrati</h3>
+    {% if mezzi %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Targa</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prossima Revisione</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for mezzo in mezzi %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ mezzo.nome }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ mezzo.tipo_mezzo or "-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ mezzo.targa or "-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded {% if (mezzo.data_revisione - oggi).days < 30 %}bg-red-100 text-red-800{% elif (mezzo.data_revisione - oggi).days < 60 %}bg-yellow-100 text-yellow-800{% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ mezzo.data_revisione }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <a href="/mezzi/{{ mezzo.id }}/libretto" class="text-green-600 hover:text-green-800 underline">
+                            📋 Libretto
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">Nessun mezzo registrato. Aggiungi il primo mezzo!</p>
+    {% endif %}
+</div>
+{% endblock %}
+

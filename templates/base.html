@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AgriNote{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-green-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-2xl font-bold">🌾 AgriNote</h1>
+                    <a href="/dashboard" class="hover:text-green-200 px-3 py-2 rounded">Dashboard</a>
+                    <a href="/mappa" class="hover:text-green-200 px-3 py-2 rounded">Mappa Campi</a>
+                    <a href="/magazzino" class="hover:text-green-200 px-3 py-2 rounded">Magazzino</a>
+                    <a href="/quaderno" class="hover:text-green-200 px-3 py-2 rounded">Quaderno</a>
+                    <a href="/mezzi" class="hover:text-green-200 px-3 py-2 rounded">Mezzi</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    {% if user %}
+                    <span class="text-green-100">Ciao, {{ user.username }}</span>
+                    <a href="/logout" class="bg-green-700 hover:bg-green-800 px-4 py-2 rounded">Logout</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="bg-green-800 text-white text-center py-4 mt-12">
+        <p>&copy; 2024 AgriNote - Gestionale Agricolo</p>
+    </footer>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
+
