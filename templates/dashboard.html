@@ -27,7 +27,7 @@
     </div>
     
     <!-- Card Meteo -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-lg shadow-md p-6" data-meteo-lat="{% if meteo and meteo.lat is not none %}{{ meteo.lat }}{% else %}45.4642{% endif %}" data-meteo-lng="{% if meteo and meteo.lng is not none %}{{ meteo.lng }}{% else %}9.1900{% endif %}">
         <h3 class="text-xl font-semibold text-green-600 mb-4">🌤️ Meteo</h3>
         <div class="space-y-2">
             <p class="text-3xl font-bold text-blue-600" id="meteo-temperatura">
@@ -165,8 +165,13 @@
 
 <script>
 // Geolocalizzazione per meteo
-let userLat = {% if meteo.lat %}{{ meteo.lat }}{% else %}45.4642{% endif %};
-let userLng = {% if meteo.lng %}{{ meteo.lng }}{% else %}9.1900{% endif %};
+const defaultLat = 45.4642;
+const defaultLng = 9.1900;
+const meteoCard = document.querySelector('[data-meteo-lat]');
+const serverLat = meteoCard ? parseFloat(meteoCard.dataset.meteoLat) : defaultLat;
+const serverLng = meteoCard ? parseFloat(meteoCard.dataset.meteoLng) : defaultLng;
+let userLat = serverLat || defaultLat;
+let userLng = serverLng || defaultLng;
 
 // Richiedi geolocalizzazione all'avvio
 window.addEventListener('DOMContentLoaded', function() {

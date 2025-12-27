@@ -36,6 +36,13 @@ class Azienda(Base):
     p_iva = Column(String, unique=True, nullable=False)
     indirizzo = Column(String, nullable=False)
     legale_rappresentante = Column(String, nullable=False)
+    codice_fiscale = Column(String, nullable=True)  # Codice fiscale azienda
+    comune = Column(String, nullable=True)  # Comune sede legale
+    provincia = Column(String, nullable=True)  # Provincia
+    cap = Column(String, nullable=True)  # CAP
+    telefono = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    numero_registro_imprese = Column(String, nullable=True)  # Numero REA
     
     # Relazioni
     user = relationship("User", back_populates="aziende")
@@ -119,14 +126,22 @@ class Trattamento(Base):
     campo_id = Column(Integer, ForeignKey("campi.id"), nullable=False)
     data = Column(Date, nullable=False)
     prodotto_id = Column(Integer, ForeignKey("prodotti.id"), nullable=False)
-    avversita = Column(String, nullable=True)
+    avversita = Column(String, nullable=True)  # Avversità o obiettivo trattamento
     quantita_per_ettaro = Column(Float, nullable=False)
     quantita_totale = Column(Float, nullable=False)  # Calcolata: dose * ettari
-    operatore = Column(String, nullable=True)
+    operatore = Column(String, nullable=True)  # Nome operatore
+    mezzo_id = Column(Integer, ForeignKey("mezzi.id"), nullable=True)  # Mezzo utilizzato
+    condizioni_meteo = Column(String, nullable=True)  # Condizioni meteo durante trattamento
+    temperatura = Column(Float, nullable=True)  # Temperatura (°C)
+    umidita = Column(Float, nullable=True)  # Umidità relativa (%)
+    velocita_vento = Column(Float, nullable=True)  # Velocità vento (km/h)
+    note = Column(Text, nullable=True)  # Note aggiuntive
+    numero_lotto = Column(String, nullable=True)  # Numero lotto prodotto (se disponibile)
     
     # Relazioni
     campo = relationship("Campo", back_populates="trattamenti")
     prodotto = relationship("Prodotto", back_populates="trattamenti")
+    mezzo = relationship("Mezzo")
 
 
 # Setup database

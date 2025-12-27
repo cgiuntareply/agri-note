@@ -1,1 +1,10 @@
 .venv
+
+esempi-doc
+__pycache__/*
+
+agrinote.db
+
+static/exports/*
+
+.DS_Store

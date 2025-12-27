@@ -3,7 +3,7 @@ AgriNote - Web App Gestionale Agricola
 FastAPI Backend con Jinja2 Templates
 """
 from fastapi import FastAPI, Request, Depends, HTTPException, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -666,6 +666,7 @@ async def quaderno(request: Request, db: Session = Depends(get_db)):
     
     campi = db.query(Campo).filter(Campo.azienda_id == azienda.id).all()
     prodotti = db.query(Prodotto).filter(Prodotto.azienda_id == azienda.id).all()
+    mezzi = db.query(Mezzo).filter(Mezzo.azienda_id == azienda.id).all()
     
     # Query trattamenti con gestione errori per dati vecchi
     try:
@@ -692,9 +693,55 @@ async def quaderno(request: Request, db: Session = Depends(get_db)):
         "azienda": azienda,
         "campi": campi,
         "prodotti": prodotti,
+        "mezzi": mezzi,
         "trattamenti": trattamenti,
         "oggi": date.today()
     })
+
+
+@app.get("/quaderno/export/pdf")
+async def export_quaderno_pdf(request: Request, db: Session = Depends(get_db)):
+    """Esporta quaderno di campagna in PDF"""
+    user = require_auth(request, db)
+    azienda = db.query(Azienda).filter(Azienda.user_id == user.id).first()
+    
+    if not azienda:
+        raise HTTPException(status_code=404, detail="Azienda non trovata")
+    
+    # Query trattamenti
+    try:
+        trattamenti = db.query(Trattamento).join(Campo).filter(
+            Campo.azienda_id == azienda.id
+        ).order_by(Trattamento.data.asc()).all()  # Ordine cronologico per PDF
+    except Exception as e:
+        print(f"WARNING: Errore query trattamenti: {e}")
+        trattamenti = []
+    
+    # Genera PDF
+    import os
+    from pdf_quaderno import genera_quaderno_pdf
+    
+    output_dir = "static/exports"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    filename = f"quaderno_campagna_{azienda.id}_{date.today().strftime('%Y%m%d')}.pdf"
+    output_path = os.path.join(output_dir, filename)
+    
+    try:
+        genera_quaderno_pdf(azienda, trattamenti, output_path)
+        
+        # Restituisci file PDF
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=filename
+        )
+    except Exception as e:
+        print(f"Errore generazione PDF: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Errore generazione PDF: {str(e)}")
 
 
 @app.post("/quaderno/trattamento/nuovo")
@@ -706,6 +753,13 @@ async def nuovo_trattamento(
     avversita: str = Form(None),
     quantita_per_ettaro: float = Form(...),
     operatore: str = Form(None),
+    mezzo_id: Optional[int] = Form(None),
+    condizioni_meteo: Optional[str] = Form(None),
+    temperatura: Optional[float] = Form(None),
+    umidita: Optional[float] = Form(None),
+    velocita_vento: Optional[float] = Form(None),
+    note: Optional[str] = Form(None),
+    numero_lotto: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """Crea nuovo trattamento"""
@@ -724,6 +778,15 @@ async def nuovo_trattamento(
     if not campo:
         raise HTTPException(status_code=404, detail="Campo non trovato")
     
+    # Verifica mezzo appartiene all'azienda (se specificato)
+    if mezzo_id:
+        mezzo = db.query(Mezzo).filter(
+            Mezzo.id == mezzo_id,
+            Mezzo.azienda_id == azienda.id
+        ).first()
+        if not mezzo:
+            mezzo_id = None  # Ignora se non valido
+    
     # Calcola quantità totale
     quantita_totale = quantita_per_ettaro * campo.superficie_ettari
     
@@ -737,7 +800,14 @@ async def nuovo_trattamento(
         avversita=avversita,
         quantita_per_ettaro=quantita_per_ettaro,
         quantita_totale=quantita_totale,
-        operatore=operatore
+        operatore=operatore,
+        mezzo_id=mezzo_id if mezzo_id else None,
+        condizioni_meteo=condizioni_meteo,
+        temperatura=temperatura,
+        umidita=umidita,
+        velocita_vento=velocita_vento,
+        note=note,
+        numero_lotto=numero_lotto
     )
     db.add(trattamento)
     db.commit()
